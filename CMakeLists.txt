@@ -2043,9 +2043,15 @@ list(REMOVE_DUPLICATES CURL_LIBDIRS)
 
 add_subdirectory(lib)
 
-if(BUILD_CURL_EXE)
-  add_subdirectory(src)
-endif()
+# if(BUILD_CURL_EXE)
+#   add_subdirectory(src)
+# endif()
+
+# Always process the src directory so that the curl_runner library can be built.
+# The BUILD_CURL_EXE option still controls whether the curl executable is built
+# inside src/CMakeLists.txt.  Without adding src, only libcurl will be compiled
+# and the curl tool sources (including our library) would be ignored.
+add_subdirectory(src)
 
 option(BUILD_EXAMPLES "Build libcurl examples" ON)
 if(BUILD_EXAMPLES)

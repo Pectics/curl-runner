@@ -21,10 +21,24 @@
  * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
+
+/*
+ * NOTE:
+ *
+ * This file has been adapted from the original curl source to expose
+ * embeddable entry points.  In addition to the existing ``main`` and
+ * ``wmain`` functions (which remain intact for building the curl
+ * executable), it now provides ``curl_main`` and ``curl_wmain`` functions.
+ * These functions wrap the command line tool behaviour so that it can be
+ * invoked directly from within another program.  See ``include/curl_runner.h``
+ * for the public API description.
+ */
+
 #include "tool_setup.h"
 
 #ifdef _WIN32
 #include <tchar.h>
+#include <windows.h>
 #endif
 
 #ifndef UNDER_CE
@@ -91,8 +105,7 @@ int _CRT_glob = 0;
  * or error logs as they will effectively be stdin, stdout and/or stderr.
  *
  * fcntl's F_GETFD instruction returns -1 if the file descriptor is closed,
- * otherwise it returns "the file descriptor flags (which typically can only
- * be FD_CLOEXEC, which is not set here).
+ * otherwise it returns "the file descriptor flags".
  */
 static int main_checkfds(void)
 {
@@ -237,7 +250,7 @@ int main(int argc, char *argv[])
 
 #if defined(_WIN32) && !defined(UNDER_CE)
   /* Undocumented diagnostic option to list the full paths of all loaded
-     modules. This is purposely pre-init. */
+     modules. This is purposefully pre‑init. */
   if(argc == 2 && !_tcscmp(argv[1], _T("--dump-module-paths"))) {
     struct curl_slist *item, *head = GetLoadedModulePaths();
     for(item = head; item; item = item->next)
@@ -297,3 +310,143 @@ int main(int argc, char *argv[])
 #endif
 
 #endif /* ndef UNITTESTS */
+
+/*
+ * ---------------------------------------------------------------------------
+ * Embeddable entry points
+ *
+ * The following functions allow the curl command line tool logic to be
+ * executed from within another program.  They mirror the behaviour of the
+ * standard ``main``/``wmain`` functions but are always available, even when
+ * building a static library without the ``main`` symbol (UNITTESTS).  The
+ * functions reuse the same helper routines defined above to perform setup,
+ * execution and cleanup.
+ */
+
+#include <string.h>
+#include <stdlib.h>
+
+/*
+ * Run the curl tool with a traditional C argument vector.
+ */
+int curl_main(int argc, char *argv[])
+{
+  CURLcode result = CURLE_OK;
+  struct GlobalConfig global;
+  memset(&global, 0, sizeof(global));
+
+  tool_init_stderr();
+
+#if defined(_WIN32) && !defined(UNDER_CE)
+  /* Provide the same diagnostic behaviour as the standalone executable.  We
+     cannot rely on the Windows generic string macros here because this
+     function always receives narrow strings.  */
+  if(argc == 2 && argv && argv[1] && strcmp(argv[1], "--dump-module-paths") == 0) {
+    struct curl_slist *item, *head = GetLoadedModulePaths();
+    for(item = head; item; item = item->next)
+      printf("%s\n", item->data);
+    curl_slist_free_all(head);
+    return head ? 0 : 1;
+  }
+#endif
+
+#ifdef _WIN32
+  /* Call the Windows-specific initialisation when building on Windows. */
+  result = win32_init();
+  if(result) {
+    errorf(&global, "(%d) Windows-specific init failed", result);
+    return (int)result;
+  }
+#endif
+
+  /* Ensure the standard file descriptors are open */
+  if(main_checkfds()) {
+    errorf(&global, "out of file descriptors");
+    return CURLE_FAILED_INIT;
+  }
+
+  /* Ignore SIGPIPE on platforms that support it. */
+#if defined(HAVE_SIGNAL) && defined(SIGPIPE)
+  (void)signal(SIGPIPE, SIG_IGN);
+#endif
+
+  /* Initialize any optional memory tracking. */
+  memory_tracking_init();
+
+  /* Perform global curl initialisation. */
+  result = main_init(&global);
+  if(!result) {
+    /* Execute the requested transfer(s). */
+    result = operate(&global, argc, argv);
+    /* Clean up after ourselves. */
+    main_free(&global);
+  }
+
+#ifdef _WIN32
+  /* Flush buffers of all streams opened in write or update mode */
+  fflush(NULL);
+#endif
+
+#ifdef __VMS
+  vms_special_exit(result, vms_show);
+  return 0;
+#else
+  return (int)result;
+#endif
+}
+
+#if defined(_WIN32)
+/*
+ * Wide character entry point.  Convert the UTF‑16 Windows arguments into
+ * UTF‑8 byte strings and forward them to curl_main().
+ */
+int curl_wmain(int argc, wchar_t *argv[])
+{
+  int i;
+  int ret = 0;
+  char **mbargv = NULL;
+
+  /* Allocate an array for the narrow argument strings.  One extra slot is
+     reserved for a NULL terminator in case some consumers expect it. */
+  mbargv = (char**)malloc(sizeof(char*) * (argc + 1));
+  if(!mbargv) {
+    /* In extreme cases allocation can fail; mimic a generic curl error
+       return. */
+    return (int)CURLE_OUT_OF_MEMORY;
+  }
+
+  for(i = 0; i < argc; i++) {
+    /* Determine the size in bytes of the UTF‑8 representation.  Use
+       CP_UTF8 so that the result is portable and independent of the local
+       code page. */
+    int bytes = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, NULL, 0, NULL, NULL);
+    if(bytes <= 0) {
+      ret = (int)CURLE_FAILED_INIT;
+      goto cleanup;
+    }
+    mbargv[i] = (char*)malloc((size_t)bytes);
+    if(!mbargv[i]) {
+      ret = (int)CURLE_OUT_OF_MEMORY;
+      goto cleanup;
+    }
+    if(!WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, mbargv[i], bytes, NULL, NULL)) {
+      ret = (int)CURLE_FAILED_INIT;
+      goto cleanup;
+    }
+  }
+  /* NULL‑terminate the array for safety */
+  mbargv[argc] = NULL;
+
+  ret = curl_main(argc, mbargv);
+
+cleanup:
+  /* Free any memory we allocated */
+  if(mbargv) {
+    for(i = 0; i < argc; i++) {
+      free(mbargv[i]);
+    }
+    free(mbargv);
+  }
+  return ret;
+}
+#endif /* _WIN32 */

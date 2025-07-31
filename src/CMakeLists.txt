@@ -112,6 +112,24 @@ target_compile_definitions(curltool PUBLIC "CURL_STATICLIB" "UNITTESTS")
 target_link_libraries(curltool PRIVATE ${CURL_LIBS})
 set_target_properties(curltool PROPERTIES C_CLANG_TIDY "")
 
+ #
+ # Build the curl_runner library.  This target exposes the full curl tool
+ # functionality via curl_main/curl_wmain functions while omitting the
+ # traditional CLI entry points.  It defines UNITTESTS so that main/wmain are
+ # excluded but our new functions remain, and links against libcurl.  When
+ # BUILD_SHARED_LIBS is enabled this will be a shared library, otherwise a
+ # static library is produced.
+if(BUILD_SHARED_LIBS)
+  add_library(curl_runner SHARED
+    ${CURL_CFILES} ${CURL_HFILES} ${_curlx_cfiles_lib} ${_curlx_hfiles_lib})
+else()
+  add_library(curl_runner STATIC
+    ${CURL_CFILES} ${CURL_HFILES} ${_curlx_cfiles_lib} ${_curlx_hfiles_lib})
+endif()
+target_compile_definitions(curl_runner PUBLIC "CURL_STATICLIB" "UNITTESTS")
+target_link_libraries(curl_runner PRIVATE ${CURL_LIBS})
+
+
 if(CURL_HAS_LTO)
   set_target_properties(${EXE_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
