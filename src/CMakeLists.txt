@@ -110,7 +110,6 @@ target_compile_definitions(curltool PUBLIC "CURL_STATICLIB" "UNITTESTS")
 target_link_libraries(curltool PRIVATE ${CURL_LIBS})
 set_target_properties(curltool PROPERTIES C_CLANG_TIDY "")
 
-
  #
  # Build the curl_runner library.  This target exposes the full curl tool
  # functionality via curl_main/curl_wmain functions while omitting the
@@ -128,8 +127,6 @@ endif()
 
 target_compile_definitions(curl_runner PUBLIC "CURL_USE_LIBPSL=OFF" "CURL_STATICLIB" "UNITTESTS")
 target_link_libraries(curl_runner PUBLIC ${LIB_SELECTED_FOR_EXE} ${CURL_LIBS})
-
-
 
 if(CURL_HAS_LTO)
   set_target_properties(${EXE_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
