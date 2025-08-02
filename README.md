@@ -1,68 +1,121 @@
 <!--
-Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
-
+Forked and modified by Pectics
+Original work Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 SPDX-License-Identifier: curl
 -->
 
-# [![curl logo](https://curl.se/logo/curl-logo.svg)](https://curl.se/)
+# curl-runner
 
-curl is a command-line tool for transferring data specified with URL syntax.
-Learn how to use curl by reading [the
-manpage](https://curl.se/docs/manpage.html) or [everything
-curl](https://everything.curl.dev/).
+[![curl logo](https://curl.se/logo/curl-logo.svg)](https://curl.se/)
 
-Find out how to install curl by reading [the INSTALL
-document](https://curl.se/docs/install.html).
+**curl-runner** 是一个基于 [curl](https://curl.se/) 改造的可复用库。  
+与原版的 `curl` 命令行工具不同，**curl-runner** 让你可以在程序内部直接以函数调用的方式使用 curl 的完整功能，而无需依赖外部的 `curl.exe` 或 `main()` 函数。  
 
-libcurl is the library curl is using to do its job. It is readily available to
-be used by your software. Read [the libcurl
-manpage](https://curl.se/libcurl/c/libcurl.html) to learn how.
+> 简单来说，就是把 `curl` 从命令行工具改造成了一个 **可调用的库**。
 
-## Open Source
+---
 
-curl is Open Source and is distributed under an MIT-like
-[license](https://curl.se/docs/copyright.html).
+## 功能特色
 
-## Contact
+- 完全保留了 curl 的命令行参数体系
+- 支持通过 `argc/argv` 风格的接口在你的应用中直接调用
+- 捕获并返回 stdout / stderr 的输出
+- 基于 libcurl，具备强大而稳定的 HTTP(S)、FTP、SFTP 等协议支持  
+- 提供同步执行接口，可嵌入任意 C++ 程序中  
+- 可编译为静态库或动态库（.lib / .dll）  
 
-Contact us on a suitable [mailing list](https://curl.se/mail/) or
-use GitHub [issues](https://github.com/curl/curl/issues)/
-[pull requests](https://github.com/curl/curl/pulls)/
-[discussions](https://github.com/curl/curl/discussions).
+---
 
-All contributors to the project are listed in [the THANKS
-document](https://curl.se/docs/thanks.html).
+## 安装与构建
 
-## Commercial support
+克隆本仓库：
 
-For commercial support, maybe private and dedicated help with your problems or
-applications using (lib)curl visit [the support page](https://curl.se/support.html).
+```bash
+git clone https://github.com/Pectics/curl-runner.git
+````
 
-## Website
+使用 CMake 构建（示例，具体视你的环境而定）：
 
-Visit the [curl website](https://curl.se/) for the latest news and downloads.
+```bash
+cmake -B build -S .
+cmake --build build --config Release
+```
 
-## Source code
+输出将包含：
 
-Download the latest source from the Git server:
+* `curl_runner.lib` / `curl_runner.dll` (Windows)
+* 或对应的 `.a` / `.so` (Linux)
 
-    git clone https://github.com/curl/curl.git
+---
 
-## Security problems
+## 使用示例
 
-Report suspected security problems via [our HackerOne
-page](https://hackerone.com/curl) and not in public.
+```cpp
+#include "curl_runner.h"
+#include <iostream>
 
-## Notice
+int main() {
+    const char* argv[] = {"curl", "-s", "https://example.com"};
+    int argc = sizeof(argv) / sizeof(argv[0]);
 
-curl contains pieces of source code that is Copyright (c) 1998, 1999 Kungliga
-Tekniska Högskolan. This notice is included here to comply with the
-distribution terms.
+    CurlResult result = curl_run(argc, const_cast<char**>(argv));
+    std::cout << "Exit code: " << result.exit_code << "\n";
+    std::cout << "Stdout:\n" << result.stdout_str << "\n";
+    std::cerr << "Stderr:\n" << result.stderr_str << "\n";
 
-## Backers
+    return 0;
+}
+```
 
-Thank you to all our backers :pray: [Become a backer](https://opencollective.com/curl#section-contribute).
+输出将与命令行运行：
 
-## Sponsors
+```bash
+curl -s https://example.com
+```
 
-Support this project by becoming a [sponsor](https://curl.se/sponsors.html).
+完全一致。
+
+---
+
+## 接口说明
+
+### `CurlResult` 结构体
+
+```cpp
+struct CurlResult {
+    int exit_code;             // curl 的退出码
+    std::string stdout_str;    // 捕获的标准输出
+    std::string stderr_str;    // 捕获的错误输出
+};
+```
+
+### `curl_run` 函数
+
+```cpp
+CurlResult curl_run(int argc, char* argv[]);
+```
+
+* 参数与原生 `curl` 的 CLI 保持一致
+* 返回 `CurlResult`，包含执行结果
+
+---
+
+## License
+
+本项目基于 [curl](https://curl.se/)
+原始版权声明见 [LICENSE](https://curl.se/docs/copyright.html)。
+修改部分由 Pectics 开发，保持与原版相同的 MIT-like 协议。
+
+---
+
+## 联系
+
+* 原版 curl: [curl.se](https://curl.se/)
+* 本项目 Issues: [GitHub Issues](https://github.com/yourname/curl_runner/issues)
+
+---
+
+## 致谢
+
+感谢 Daniel Stenberg 及 curl 项目的所有贡献者。
+curl-runner 项目的灵感与核心功能均来自于 [curl](https://curl.se/)。
