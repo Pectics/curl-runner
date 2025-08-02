@@ -28,11 +28,19 @@
 #include "tool_cb_prg.h"
 #include "terminal.h"
 
+#include "curl_capture.h"
+
 #include "memdebug.h" /* keep this as LAST include */
 
 #define WARN_PREFIX "Warning: "
 #define NOTE_PREFIX "Note: "
 #define ERROR_PREFIX "curl: "
+
+static struct CaptureBuffer *capture_err = NULL;
+
+void set_stderr_capture_buffer(struct CaptureBuffer *buffer) {
+  capture_err = buffer;
+}
 
 static void voutf(struct GlobalConfig *global,
                   const char *prefix,
@@ -55,6 +63,9 @@ static void voutf(struct GlobalConfig *global,
     if(!print_buffer)
       return;
     len = strlen(print_buffer);
+
+    /* CaptureBuffer Hack */
+    if(capture_err) capture_append(capture_err, print_buffer, len);
 
     ptr = print_buffer;
     while(len > 0) {

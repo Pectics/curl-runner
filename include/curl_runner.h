@@ -1,52 +1,63 @@
-/*
- * curl_runner.h
- *
- * This header exposes functions that allow embedding the curl command line
- * functionality into another application.  Instead of spawning an external
- * process or parsing arguments yourself, you can call ``curl_main`` (or on
- * Windows, ``curl_wmain``) directly with the same argv/argc parameters you
- * would normally pass to the curl executable.  These functions wrap the
- * original curl main routines in a way that they can be linked from a
- * library build.  See tool_main.c for the implementation details.
- */
-
 #ifndef CURL_RUNNER_H
 #define CURL_RUNNER_H
+
+#include <string>
+#include <vector>
+
+#include "curl_capture.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*
- * Execute curl with the given argument vector.  This function behaves in
- * exactly the same way as invoking the ``curl`` command line tool: it
- * performs global initialization, parses command line arguments, runs the
- * transfer(s) and performs cleanup before returning.  The return value
- * matches the exit code of curl.
- *
- * @param argc  the number of entries in ``argv``
- * @param argv  an array of C strings holding the command line arguments
- * @return      the same integer that the curl executable would return
- */
 int curl_main(int argc, char *argv[]);
-
 #if defined(_WIN32)
-/*
- * Wide‑character variant of curl_main for Windows.  When building a Unicode
- * Windows application, command line arguments are provided as UTF‑16
- * ``wchar_t`` strings.  This function converts the wide strings to UTF‑8
- * internally and forwards them to ``curl_main``.  The semantics of the
- * return value are identical to those of ``curl_main``.
- *
- * @param argc  the number of entries in ``argv``
- * @param argv  an array of wide strings holding the command line arguments
- * @return      the same integer that the curl executable would return
- */
 int curl_wmain(int argc, wchar_t *argv[]);
 #endif
+
+struct CurlResult {
+    int exit_code;
+    std::string stdout_str;
+    std::string stderr_str;
+};
+
+void set_stdout_capture_buffer(struct CaptureBuffer *buffer);
+void set_stderr_capture_buffer(struct CaptureBuffer *buffer);
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
+
+#define RUNNER_OUT_BUFFER_SIZE 1024 * 64
+#define RUNNER_ERR_BUFFER_SIZE 1024 * 16
+
+struct CurlResult curl_run(const std::vector<std::string> &args) {
+
+    static struct CaptureBuffer outbuf;
+    static char out_static[RUNNER_OUT_BUFFER_SIZE];
+    capture_init(&outbuf, out_static, sizeof(out_static));
+    set_stdout_capture_buffer(&outbuf);
+
+    static struct CaptureBuffer errbuf;
+    static char err_static[RUNNER_ERR_BUFFER_SIZE];
+    capture_init(&errbuf, err_static, sizeof(err_static));
+    set_stderr_capture_buffer(&errbuf);
+
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 2);
+    argv.push_back(const_cast<char*>("curl"));
+    for (auto &s : args)
+        argv.push_back(const_cast<char*>(s.c_str()));
+    argv.push_back(nullptr);
+
+    int code = curl_main(static_cast<int>(argv.size() - 1), argv.data());
+
+    CurlResult result;
+    result.exit_code = code;
+    result.stdout_str = std::string(outbuf.data);
+    result.stderr_str = std::string(errbuf.data);
+    
+    return result;
+}
 
 #endif /* CURL_RUNNER_H */

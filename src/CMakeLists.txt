@@ -101,9 +101,7 @@ set_property(DIRECTORY APPEND PROPERTY INCLUDE_DIRECTORIES
 add_executable(${EXE_NAME} ${CURL_CFILES} ${CURL_HFILES} ${_curl_cfiles_gen} ${_curl_hfiles_gen} ${CURLX_CFILES} ${CURLX_HFILES})
 target_compile_definitions(${EXE_NAME} PRIVATE ${_curl_definitions})
 target_link_libraries(${EXE_NAME} ${LIB_SELECTED_FOR_EXE} ${CURL_LIBS})
-
 add_executable(${PROJECT_NAME}::${EXE_NAME} ALIAS ${EXE_NAME})
-
 add_executable(curlinfo EXCLUDE_FROM_ALL "curlinfo.c")
 
 # special libcurltool library just for unittests
@@ -111,6 +109,7 @@ add_library(curltool STATIC EXCLUDE_FROM_ALL ${CURL_CFILES} ${CURL_HFILES} ${_cu
 target_compile_definitions(curltool PUBLIC "CURL_STATICLIB" "UNITTESTS")
 target_link_libraries(curltool PRIVATE ${CURL_LIBS})
 set_target_properties(curltool PROPERTIES C_CLANG_TIDY "")
+
 
  #
  # Build the curl_runner library.  This target exposes the full curl tool
@@ -126,8 +125,10 @@ else()
   add_library(curl_runner STATIC
     ${CURL_CFILES} ${CURL_HFILES} ${_curlx_cfiles_lib} ${_curlx_hfiles_lib})
 endif()
-target_compile_definitions(curl_runner PUBLIC "CURL_STATICLIB" "UNITTESTS")
-target_link_libraries(curl_runner PRIVATE ${CURL_LIBS})
+
+target_compile_definitions(curl_runner PUBLIC "CURL_USE_LIBPSL=OFF" "CURL_STATICLIB" "UNITTESTS")
+target_link_libraries(curl_runner PUBLIC ${LIB_SELECTED_FOR_EXE} ${CURL_LIBS})
+
 
 
 if(CURL_HAS_LTO)

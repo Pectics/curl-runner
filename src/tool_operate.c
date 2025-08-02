@@ -550,7 +550,6 @@ static CURLcode retrycheck(struct OperationConfig *config,
   return result;
 }
 
-
 /*
  * Call this after a transfer has completed.
  */
@@ -1270,7 +1269,10 @@ static CURLcode single_transfer(struct OperationConfig *config,
       per->infd = STDIN_FILENO;
 
       /* default output stream is stdout */
-      outs->stream = stdout;
+      // outs->stream = stdout;
+      /* Hack to NUL stream */
+      outs->stream = fopen("NUL", "w");
+      if(!outs->stream) outs->stream = tmpfile();
 
       if(state->urls) {
         result = glob_next_url(&per->url, state->urls);

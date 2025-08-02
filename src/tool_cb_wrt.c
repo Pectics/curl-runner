@@ -33,6 +33,8 @@
 #include "tool_cb_wrt.h"
 #include "tool_operate.h"
 
+#include "curl_capture.h"
+
 #include "memdebug.h" /* keep this as LAST include */
 
 #ifdef _WIN32
@@ -40,6 +42,12 @@
 #else
 #define OPENMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH
 #endif
+
+static struct CaptureBuffer *capture_out = NULL;
+
+void set_stdout_capture_buffer(struct CaptureBuffer *buffer) {
+  capture_out = buffer;
+}
 
 /* create/open a local file for writing, return TRUE on success */
 bool tool_create_output_file(struct OutStruct *outs,
@@ -140,6 +148,9 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
   CONSOLE_SCREEN_BUFFER_INFO console_info;
   intptr_t fhnd;
 #endif
+
+  /* CaptureBuffer Hack */
+  if(capture_out) capture_append(capture_out, buffer, bytes);
 
   if(outs->out_null)
     return bytes;
