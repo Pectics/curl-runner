@@ -157,8 +157,8 @@ static CURLcode smtp_connect(struct Curl_easy *data, bool *done);
 static CURLcode smtp_disconnect(struct Curl_easy *data,
                                 struct connectdata *conn, bool dead);
 static CURLcode smtp_multi_statemach(struct Curl_easy *data, bool *done);
-static int smtp_getsock(struct Curl_easy *data,
-                        struct connectdata *conn, curl_socket_t *socks);
+static CURLcode smtp_pollset(struct Curl_easy *data,
+                             struct easy_pollset *ps);
 static CURLcode smtp_doing(struct Curl_easy *data, bool *dophase_done);
 static CURLcode smtp_setup_connection(struct Curl_easy *data,
                                       struct connectdata *conn);
@@ -192,10 +192,10 @@ const struct Curl_handler Curl_handler_smtp = {
   smtp_connect,                     /* connect_it */
   smtp_multi_statemach,             /* connecting */
   smtp_doing,                       /* doing */
-  smtp_getsock,                     /* proto_getsock */
-  smtp_getsock,                     /* doing_getsock */
-  ZERO_NULL,                        /* domore_getsock */
-  ZERO_NULL,                        /* perform_getsock */
+  smtp_pollset,                     /* proto_pollset */
+  smtp_pollset,                     /* doing_pollset */
+  ZERO_NULL,                        /* domore_pollset */
+  ZERO_NULL,                        /* perform_pollset */
   smtp_disconnect,                  /* disconnect */
   ZERO_NULL,                        /* write_resp */
   ZERO_NULL,                        /* write_resp_hd */
@@ -223,10 +223,10 @@ const struct Curl_handler Curl_handler_smtps = {
   smtp_connect,                     /* connect_it */
   smtp_multi_statemach,             /* connecting */
   smtp_doing,                       /* doing */
-  smtp_getsock,                     /* proto_getsock */
-  smtp_getsock,                     /* doing_getsock */
-  ZERO_NULL,                        /* domore_getsock */
-  ZERO_NULL,                        /* perform_getsock */
+  smtp_pollset,                     /* proto_pollset */
+  smtp_pollset,                     /* doing_pollset */
+  ZERO_NULL,                        /* domore_pollset */
+  ZERO_NULL,                        /* perform_pollset */
   smtp_disconnect,                  /* disconnect */
   ZERO_NULL,                        /* write_resp */
   ZERO_NULL,                        /* write_resp_hd */
@@ -1257,7 +1257,7 @@ static CURLcode smtp_state_data_resp(struct Curl_easy *data,
     Curl_pgrsSetUploadSize(data, data->state.infilesize);
 
     /* SMTP upload */
-    Curl_xfer_setup1(data, CURL_XFER_SEND, -1, FALSE);
+    Curl_xfer_setup_send(data, FIRSTSOCKET);
 
     /* End of DO phase */
     smtp_state(data, smtpc, SMTP_STOP);
@@ -1413,12 +1413,12 @@ static CURLcode smtp_block_statemach(struct Curl_easy *data,
 }
 
 /* For the SMTP "protocol connect" and "doing" phases only */
-static int smtp_getsock(struct Curl_easy *data,
-                        struct connectdata *conn, curl_socket_t *socks)
+static CURLcode smtp_pollset(struct Curl_easy *data,
+                             struct easy_pollset *ps)
 {
-  struct smtp_conn *smtpc = Curl_conn_meta_get(conn, CURL_META_SMTP_CONN);
-  return smtpc ?
-         Curl_pp_getsock(data, &smtpc->pp, socks) : GETSOCK_BLANK;
+  struct smtp_conn *smtpc =
+    Curl_conn_meta_get(data->conn, CURL_META_SMTP_CONN);
+  return smtpc ? Curl_pp_pollset(data, &smtpc->pp, ps) : CURLE_OK;
 }
 
 /***********************************************************************

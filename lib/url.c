@@ -388,7 +388,7 @@ CURLcode Curl_init_userdefined(struct Curl_easy *data)
   set->ftp_filemethod = FTPFILE_MULTICWD;
   set->ftp_skip_ip = TRUE;    /* skip PASV IP by default */
 #endif
-  set->dns_cache_timeout = 60; /* Timeout every 60 seconds by default */
+  set->dns_cache_timeout_ms = 60000; /* Timeout every 60 seconds by default */
 
   /* Timeout every 24 hours by default */
   set->general_ssl.ca_cache_timeout = 24 * 60 * 60;
@@ -1397,8 +1397,8 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
 
   conn->sock[FIRSTSOCKET] = CURL_SOCKET_BAD;     /* no file descriptor */
   conn->sock[SECONDARYSOCKET] = CURL_SOCKET_BAD; /* no file descriptor */
-  conn->sockfd = CURL_SOCKET_BAD;
-  conn->writesockfd = CURL_SOCKET_BAD;
+  conn->recv_idx = 0; /* default for receiving transfer data */
+  conn->send_idx = 0; /* default for sending transfer data */
   conn->connection_id = -1;    /* no ID */
   conn->remote_port = -1; /* unknown at this point */
 
