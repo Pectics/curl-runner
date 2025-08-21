@@ -6,25 +6,21 @@ SPDX-License-Identifier: curl
 
 # curl-runner
 
-[![curl logo](https://curl.se/logo/curl-logo.svg)](https://curl.se/)
+[![curl-runner logo](assets/curl_runner.png)](https://github.com/Pectics/curl-runner)
 
-**curl-runner** 是一个基于 [curl](https://curl.se/) 改造的可复用库。  
-与原版的 `curl` 命令行工具不同，**curl-runner** 让你可以在程序内部直接以函数调用的方式使用 curl 的完整功能，而无需依赖外部的 `curl.exe` 或 `main()` 函数。  
+**curl-runner** 是一个基于 [curl](https://curl.se/) 改造的可复用库。
+与原版的 `curl` 命令行工具或 `libcurl` 不同，**curl-runner** 让你可以在程序内部直接以函数调用的方式使用 curl 的完整功能，而无需对接 `libcurl` 或依赖外部的 `curl.exe`。  
 
 > 简单来说，就是把 `curl` 从命令行工具改造成了一个 **可调用的库**。
-
----
 
 ## 功能特色
 
 - 完全保留了 curl 的命令行参数体系
 - 支持通过 `argc/argv` 风格的接口在你的应用中直接调用
 - 捕获并返回 stdout / stderr 的输出
-- 基于 libcurl，具备强大而稳定的 HTTP(S)、FTP、SFTP 等协议支持  
-- 提供同步执行接口，可嵌入任意 C++ 程序中  
-- 可编译为静态库或动态库（.lib / .dll）  
-
----
+- 基于 libcurl，具备强大而稳定的 HTTP(S)、FTP、SFTP 等协议支持
+- 提供同步执行接口，可嵌入任意 C++ 程序中
+- 可编译为静态库或动态库（.lib / .dll）
 
 ## 安装与构建
 
@@ -32,7 +28,7 @@ SPDX-License-Identifier: curl
 
 ```bash
 git clone https://github.com/Pectics/curl-runner.git
-````
+```
 
 使用 CMake 构建（示例，具体视你的环境而定）：
 
@@ -46,8 +42,6 @@ cmake --build build --config Release
 * `curl_runner.lib` / `curl_runner.dll` (Windows)
 * 或对应的 `.a` / `.so` (Linux)
 
----
-
 ## 使用示例
 
 ```cpp
@@ -55,7 +49,7 @@ cmake --build build --config Release
 #include <iostream>
 
 int main() {
-    const char* argv[] = {"curl", "-s", "https://example.com"};
+    const char* argv[] = {"-s", "https://example.com"};
     int argc = sizeof(argv) / sizeof(argv[0]);
 
     CurlResult result = curl_run(argc, const_cast<char**>(argv));
@@ -67,15 +61,11 @@ int main() {
 }
 ```
 
-输出将与命令行运行：
+输出将与命令行运行如下指令一致：
 
 ```bash
 curl -s https://example.com
 ```
-
-完全一致。
-
----
 
 ## 接口说明
 
@@ -95,10 +85,8 @@ struct CurlResult {
 CurlResult curl_run(int argc, char* argv[]);
 ```
 
-* 参数与原生 `curl` 的 CLI 保持一致
+* 参数与原生 `curl` 的 CLI 相似，不需要给定 `"curl"` 参数
 * 返回 `CurlResult`，包含执行结果
-
----
 
 ## License
 
@@ -106,14 +94,10 @@ CurlResult curl_run(int argc, char* argv[]);
 原始版权声明见 [LICENSE](https://curl.se/docs/copyright.html)。
 修改部分由 Pectics 开发，保持与原版相同的 MIT-like 协议。
 
----
-
 ## 联系
 
 * 原版 curl: [curl.se](https://curl.se/)
 * 本项目 Issues: [GitHub Issues](https://github.com/yourname/curl_runner/issues)
-
----
 
 ## 致谢
 
