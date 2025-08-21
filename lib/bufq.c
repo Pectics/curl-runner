@@ -537,7 +537,8 @@ CURLcode Curl_bufq_write_pass(struct bufq *q,
       if(result != CURLE_AGAIN)
         /* real error, fail */
         return result;
-      if((result == CURLE_AGAIN) && *pwritten)
+      /* result == CURLE_AGAIN */
+      if(*pwritten)
         /* we did write successfully before */
         result = CURLE_OK;
       return result;
@@ -601,8 +602,7 @@ static CURLcode bufq_slurpn(struct bufq *q, size_t max_len,
       break;
     }
     else if(n == 0) {
-      /* eof */
-      result = CURLE_OK;
+      /* eof, result remains CURLE_OK */
       break;
     }
     *pnread += n;

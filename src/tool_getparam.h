@@ -90,6 +90,7 @@ typedef enum {
   C_FAIL_EARLY,
   C_FAIL_WITH_BODY,
   C_FALSE_START,
+  C_FOLLOW,
   C_FORM,
   C_FORM_ESCAPE,
   C_FORM_STRING,
@@ -359,7 +360,6 @@ typedef enum {
   PARAM_LAST
 } ParameterError;
 
-struct GlobalConfig;
 struct OperationConfig;
 
 const struct LongShort *findlongopt(const char *opt);
@@ -375,8 +375,7 @@ void parse_cert_parameter(const char *cert_parameter,
                           char **passphrase);
 #endif
 
-ParameterError parse_args(struct GlobalConfig *global, int argc,
-                          argv_item_t argv[]);
+ParameterError parse_args(int argc, argv_item_t argv[]);
 
 #if defined(UNICODE) && defined(_WIN32) && !defined(UNDER_CE)
 

@@ -49,7 +49,7 @@ jobs:
       matrix:
         arch: ['x86_64']
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
       - name: 'cmake'
@@ -83,7 +83,7 @@ jobs:
               time cmake --build bld --target test-ci
             fi
             echo '::group::build examples'
-            time cmake --build bld --target curl-examples
+            time cmake --build bld --target curl-examples-build
             echo '::endgroup::'
 
   openbsd:
@@ -94,7 +94,7 @@ jobs:
       matrix:
         arch: ['x86_64']
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
       - name: 'cmake'
@@ -128,7 +128,7 @@ jobs:
               time cmake --build bld --target test-ci
             fi
             echo '::group::build examples'
-            time cmake --build bld --target curl-examples
+            time cmake --build bld --target curl-examples-build
             echo '::endgroup::'
 
   freebsd:
@@ -144,7 +144,7 @@ jobs:
           - { build: 'cmake'    , arch: 'arm64', compiler: 'clang' }
       fail-fast: false
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
       - name: '${{ matrix.build }}'
@@ -232,48 +232,12 @@ jobs:
             if [ "${MATRIX_DESC#*!examples*}" = "${MATRIX_DESC}" ]; then
               echo '::group::build examples'
               if [ "${MATRIX_BUILD}" = 'cmake' ]; then
-                time cmake --build bld --target curl-examples
+                time cmake --build bld --target curl-examples-build
               else
                 time make -C bld examples
               fi
               echo '::endgroup::'
             fi
-
-  omnios:
-    name: 'OmniOS, AM gcc openssl amd64'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          persist-credentials: false
-      - name: 'autotools'
-        uses: vmactions/omnios-vm@8eba2a9217262f275d4566751a92d6ef2f433d00 # v1
-        with:
-          usesh: true
-          # https://pkg.omnios.org/r151052/core/en/index.shtml
-          prepare: pkg install build-essential libtool nghttp2
-          run: |
-            set -e
-            ln -s /usr/bin/gcpp /usr/bin/cpp  # Some tests expect `cpp`, which is named `gcpp` in this env.
-            export MAKEFLAGS=-j3
-            export CURL_CI=github
-            time autoreconf -fi
-            mkdir bld && cd bld
-            time ../configure --enable-unity --enable-debug --enable-warnings --enable-werror \
-              --prefix="$HOME"/curl-install \
-              --with-openssl \
-              --disable-dependency-tracking \
-              || { tail -n 1000 config.log; false; }
-            echo '::group::curl_config.h (raw)'; cat lib/curl_config.h || true; echo '::endgroup::'
-            echo '::group::curl_config.h'; grep -F '#define' lib/curl_config.h | sort || true; echo '::endgroup::'
-            time gmake install
-            src/curl --disable --version
-            time gmake -C tests
-            time gmake test-ci V=1
-            echo '::group::build examples'
-            time gmake examples
-            echo '::endgroup::'
 
   android:
     name: "Android ${{ matrix.platform }}, ${{ matrix.build == 'cmake' && 'CM' || 'AM' }} ${{ matrix.name }} arm64"
@@ -299,7 +263,7 @@ jobs:
 
       fail-fast: false
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
@@ -361,7 +325,7 @@ jobs:
       - name: 'build examples'
         run: |
           if [ "${MATRIX_BUILD}" = 'cmake' ]; then
-            cmake --build bld --target curl-examples
+            cmake --build bld --target curl-examples-build
           else
             make -C bld examples
           fi
@@ -385,7 +349,7 @@ jobs:
           sudo apt-get -o Dpkg::Use-Pty=0 install libfl2
 
       - name: 'cache compiler (djgpp)'
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
         id: cache-compiler
         with:
           path: ~/djgpp
@@ -405,7 +369,7 @@ jobs:
             rm -f bin.zip
           done
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
@@ -473,7 +437,7 @@ jobs:
         if: ${{ matrix.build == 'cmake' }}  # skip for autotools to save time
         run: |
           if [ "${MATRIX_BUILD}" = 'cmake' ]; then
-            cmake --build bld --target curl-examples
+            cmake --build bld --target curl-examples-build
           else
             make -C bld examples
           fi

@@ -151,83 +151,6 @@ static void memory_tracking_init(void)
 #endif
 
 /*
- * This is the main global constructor for the app. Call this before
- * _any_ libcurl usage. If this fails, *NO* libcurl functions may be
- * used, or havoc may be the result.
- */
-static CURLcode main_init(struct GlobalConfig *global)
-{
-  CURLcode result = CURLE_OK;
-
-#ifdef __DJGPP__
-  /* stop stat() wasting time */
-  _djstat_flags |= _STAT_INODE | _STAT_EXEC_MAGIC | _STAT_DIRSIZE;
-#endif
-
-  /* Initialise the global config */
-  global->showerror = FALSE;          /* show errors when silent */
-  global->styled_output = TRUE;       /* enable detection */
-  global->parallel_max = PARALLEL_DEFAULT;
-
-  /* Allocate the initial operate config */
-  global->first = global->last = config_alloc(global);
-  if(global->first) {
-    /* Perform the libcurl initialization */
-    result = curl_global_init(CURL_GLOBAL_DEFAULT);
-    if(!result) {
-      /* Get information about libcurl */
-      result = get_libcurl_info();
-
-      if(result) {
-        errorf(global, "error retrieving curl library information");
-        free(global->first);
-      }
-    }
-    else {
-      errorf(global, "error initializing curl library");
-      free(global->first);
-    }
-  }
-  else {
-    errorf(global, "error initializing curl");
-    result = CURLE_FAILED_INIT;
-  }
-
-  return result;
-}
-
-static void free_globalconfig(struct GlobalConfig *global)
-{
-  tool_safefree(global->trace_dump);
-
-  if(global->trace_fopened && global->trace_stream)
-    fclose(global->trace_stream);
-  global->trace_stream = NULL;
-
-  tool_safefree(global->libcurl);
-}
-
-/*
- * This is the main global destructor for the app. Call this after _all_
- * libcurl usage is done.
- */
-static void main_free(struct GlobalConfig *global)
-{
-  /* Cleanup the easy handle */
-  /* Main cleanup */
-  curl_global_cleanup();
-  free_globalconfig(global);
-
-  /* Free the OperationConfig structures */
-  config_free(global->last);
-  global->first = NULL;
-  global->last = NULL;
-}
-
-/* if we build a static library for unit tests, there is no main() function */
-#ifndef UNITTESTS
-
-/*
 ** curl tool main function.
 */
 #if defined(_UNICODE) && !defined(UNDER_CE)
@@ -243,8 +166,6 @@ int main(int argc, char *argv[])
 #endif
 {
   CURLcode result = CURLE_OK;
-  struct GlobalConfig global;
-  memset(&global, 0, sizeof(global));
 
   tool_init_stderr();
 
@@ -263,13 +184,13 @@ int main(int argc, char *argv[])
   /* win32_init must be called before other init routines. */
   result = win32_init();
   if(result) {
-    errorf(&global, "(%d) Windows-specific init failed", result);
+    errorf("(%d) Windows-specific init failed", result);
     return (int)result;
   }
 #endif
 
   if(main_checkfds()) {
-    errorf(&global, "out of file descriptors");
+    errorf("out of file descriptors");
     return CURLE_FAILED_INIT;
   }
 
@@ -282,13 +203,13 @@ int main(int argc, char *argv[])
 
   /* Initialize the curl library - do not call any libcurl functions before
      this point */
-  result = main_init(&global);
+  result = globalconf_init();
   if(!result) {
     /* Start our curl operation */
-    result = operate(&global, argc, argv);
+    result = operate(argc, argv);
 
     /* Perform the main cleanup */
-    main_free(&global);
+    globalconf_free();
   }
 
 #ifdef _WIN32
@@ -302,95 +223,12 @@ int main(int argc, char *argv[])
   return (int)result;
 #endif
 }
-
-#if defined(_UNICODE) && !defined(UNDER_CE)
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-#endif
-
-#endif /* ndef UNITTESTS */
 
 /*
- * ---------------------------------------------------------------------------
- * Embeddable entry points
- *
- * The following functions allow the curl command line tool logic to be
- * executed from within another program.  They mirror the behaviour of the
- * standard ``main``/``wmain`` functions but are always available, even when
- * building a static library without the ``main`` symbol (UNITTESTS).  The
- * functions reuse the same helper routines defined above to perform setup,
- * execution and cleanup.
+ * curl_runner entry
  */
 #if defined(_UNICODE) && !defined(UNDER_CE)
-#if defined(__GNUC__) || defined(__clang__)
-/* GCC does not know about wmain() */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-#pragma GCC diagnostic ignored "-Wmissing-declarations"
-#endif
-int curl_wmain(int argc, wchar_t *argv[])
+int curl_wmain(int argc, wchar_t *argv[]) { return wmain(argc, argv); }
 #else
-int curl_main(int argc, char *argv[])
+int curl_main(int argc, char *argv[]) { return main(argc, argv); }
 #endif
-{
-  CURLcode result = CURLE_OK;
-  struct GlobalConfig global;
-  memset(&global, 0, sizeof(global));
-
-  tool_init_stderr();
-
-#if defined(_WIN32) && !defined(UNDER_CE)
-  /* Undocumented diagnostic option to list the full paths of all loaded
-     modules. This is purposefully pre‑init. */
-  if(argc == 2 && !_tcscmp(argv[1], _T("--dump-module-paths"))) {
-    struct curl_slist *item, *head = GetLoadedModulePaths();
-    for(item = head; item; item = item->next)
-      printf("%s\n", item->data);
-    curl_slist_free_all(head);
-    return head ? 0 : 1;
-  }
-#endif
-#ifdef _WIN32
-  /* win32_init must be called before other init routines. */
-  result = win32_init();
-  if(result) {
-    errorf(&global, "(%d) Windows-specific init failed", result);
-    return (int)result;
-  }
-#endif
-
-  if(main_checkfds()) {
-    errorf(&global, "out of file descriptors");
-    return CURLE_FAILED_INIT;
-  }
-
-#if defined(HAVE_SIGNAL) && defined(SIGPIPE)
-  (void)signal(SIGPIPE, SIG_IGN);
-#endif
-
-  /* Initialize memory tracking */
-  memory_tracking_init();
-
-  /* Initialize the curl library - do not call any libcurl functions before
-     this point */
-  result = main_init(&global);
-  if(!result) {
-    /* Start our curl operation */
-    result = operate(&global, argc, argv);
-
-    /* Perform the main cleanup */
-    main_free(&global);
-  }
-
-#ifdef _WIN32
-  /* Flush buffers of all streams opened in write or update mode */
-  fflush(NULL);
-#endif
-
-#ifdef __VMS
-  vms_special_exit(result, vms_show);
-#else
-  return (int)result;
-#endif
-}

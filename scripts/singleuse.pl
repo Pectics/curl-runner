@@ -51,6 +51,7 @@ my %wl = (
     'Curl_creader_def_read' => 'internal api',
     'Curl_creader_def_total_length' => 'internal api',
     'Curl_meta_reset' => 'internal api',
+    'Curl_thread_destroy' => 'internal api',
     'Curl_trc_dns' => 'internal api',
     'curlx_base64_decode' => 'internal api',
     'curlx_base64_encode' => 'internal api',
@@ -111,6 +112,7 @@ my %api = (
     'curl_multi_cleanup' => 'API',
     'curl_multi_fdset' => 'API',
     'curl_multi_get_handles' => 'API',
+    'curl_multi_get_offt' => 'API',
     'curl_multi_info_read' => 'API',
     'curl_multi_init' => 'API',
     'curl_multi_perform' => 'API',
@@ -154,6 +156,7 @@ my %api = (
     'curl_ws_meta' => 'API',
     'curl_ws_recv' => 'API',
     'curl_ws_send' => 'API',
+    'curl_ws_start_frame' => 'API',
 
     # the following functions are provided globally in debug builds
     'curl_easy_perform_ev' => 'debug-build',

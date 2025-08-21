@@ -47,12 +47,11 @@
 #define CURL_TIMEOUT_RESOLVE 300 /* when using asynch methods, we allow this
                                     many seconds for a name resolve */
 
-#define CURL_ASYNC_SUCCESS CURLE_OK
-
 struct addrinfo;
 struct hostent;
 struct Curl_easy;
 struct connectdata;
+struct easy_pollset;
 
 enum alpnid {
   ALPN_none = 0,
@@ -67,7 +66,7 @@ struct Curl_dns_entry {
   struct Curl_https_rrinfo *hinfo;
 #endif
   /* timestamp == 0 -- permanent CURLOPT_RESOLVE entry (does not time out) */
-  time_t timestamp;
+  struct curltime timestamp;
   /* reference counter, entry is freed on reaching 0 */
   size_t refcount;
   /* hostname port number that resolved to addr. */
@@ -199,8 +198,8 @@ CURLcode Curl_resolv_check(struct Curl_easy *data,
 #else
 #define Curl_resolv_check(x,y) CURLE_NOT_BUILT_IN
 #endif
-int Curl_resolv_getsock(struct Curl_easy *data,
-                        curl_socket_t *socks);
+CURLcode Curl_resolv_pollset(struct Curl_easy *data,
+                             struct easy_pollset *ps);
 
 CURLcode Curl_resolver_error(struct Curl_easy *data);
 
@@ -215,6 +214,10 @@ struct Curl_addrinfo *Curl_sync_getaddrinfo(struct Curl_easy *data,
                                             int port,
                                             int ip_version);
 
+#endif
+
+#ifdef DEBUGBUILD
+void Curl_resolve_test_delay(void);
 #endif
 
 #endif /* HEADER_CURL_HOSTIP_H */

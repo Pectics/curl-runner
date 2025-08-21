@@ -355,7 +355,7 @@ if(WIN32)
 endif()
 
 # Override to force-disable or force-enable the use of pkg-config.
-if((UNIX AND NOT ANDROID AND (NOT APPLE OR CMAKE_SYSTEM_NAME MATCHES "Darwin")) OR
+if((UNIX AND NOT ANDROID AND (NOT APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")) OR
    VCPKG_TOOLCHAIN OR
    (MINGW AND NOT CMAKE_CROSSCOMPILING))
   set(_curl_use_pkgconfig_default ON)
@@ -653,7 +653,7 @@ if(ENABLE_IPV6)
       set(ENABLE_IPV6 OFF CACHE BOOL "Enable IPv6 support" FORCE)  # Force the feature off as we use this name as guard macro
     endif()
 
-    if(APPLE AND NOT ENABLE_ARES)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND NOT ENABLE_ARES)
       set(_use_core_foundation_and_core_services ON)
 
       find_library(SYSTEMCONFIGURATION_FRAMEWORK NAMES "SystemConfiguration")
@@ -802,6 +802,9 @@ endif()
 
 if(CURL_USE_MBEDTLS)
   find_package(MbedTLS REQUIRED)
+  if(MBEDTLS_VERSION VERSION_LESS 3.2.0)
+    message(FATAL_ERROR "mbedTLS v3.2.0 or newer is required.")
+  endif()
   set(_ssl_enabled ON)
   set(USE_MBEDTLS ON)
   list(APPEND CURL_LIBS ${MBEDTLS_LIBRARIES})
@@ -1093,7 +1096,9 @@ endif()
 
 option(USE_NGTCP2 "Use ngtcp2 and nghttp3 libraries for HTTP/3 support" OFF)
 if(USE_NGTCP2)
-  if(USE_OPENSSL OR USE_WOLFSSL)
+  if(CURL_WITH_MULTI_SSL)
+    message(FATAL_ERROR "MultiSSL cannot be enabled with HTTP/3 and vice versa.")
+  elseif(USE_OPENSSL OR USE_WOLFSSL)
     if(USE_WOLFSSL)
       find_package(NGTCP2 REQUIRED "wolfSSL")
     elseif(HAVE_BORINGSSL OR HAVE_AWSLC)
@@ -1141,6 +1146,8 @@ option(USE_QUICHE "Use quiche library for HTTP/3 support" OFF)
 if(USE_QUICHE)
   if(USE_NGTCP2)
     message(FATAL_ERROR "Only one HTTP/3 backend can be selected")
+  elseif(CURL_WITH_MULTI_SSL)
+    message(FATAL_ERROR "MultiSSL cannot be enabled with HTTP/3 and vice versa.")
   endif()
   find_package(Quiche REQUIRED)
   if(NOT HAVE_BORINGSSL)
@@ -1167,6 +1174,8 @@ endif()
 if(USE_OPENSSL_QUIC)
   if(USE_NGTCP2 OR USE_QUICHE)
     message(FATAL_ERROR "Only one HTTP/3 backend can be selected")
+  elseif(CURL_WITH_MULTI_SSL)
+    message(FATAL_ERROR "MultiSSL cannot be enabled with HTTP/3 and vice versa.")
   endif()
   find_package(OpenSSL 3.3.0 REQUIRED)
 
@@ -1180,10 +1189,6 @@ if(USE_OPENSSL_QUIC)
   if(NGHTTP3_CFLAGS)
     string(APPEND CMAKE_C_FLAGS " ${NGHTTP3_CFLAGS}")
   endif()
-endif()
-
-if(CURL_WITH_MULTI_SSL AND (USE_NGTCP2 OR USE_QUICHE OR USE_OPENSSL_QUIC))
-  message(FATAL_ERROR "MultiSSL cannot be enabled with HTTP/3 and vice versa.")
 endif()
 
 if(NOT CURL_DISABLE_SRP AND (HAVE_GNUTLS_SRP OR HAVE_OPENSSL_SRP))

@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.cjson": "jsonc",
+        "*.wxss": "css",
+        "*.wxs": "javascript",
+        "*.qml": "wxml",
+        "*.qss": "css",
+        "xlocbuf": "cpp"
+    }
+}

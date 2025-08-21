@@ -34,6 +34,7 @@
 #include "tool_cb_wrt.h"
 #include "tool_operate.h"
 #include "tool_libinfo.h"
+#include "tool_strdup.h"
 
 #include "memdebug.h" /* keep this as LAST include */
 
@@ -98,7 +99,7 @@ size_t tool_header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
 
 #ifdef DEBUGBUILD
   if(size * nmemb > (size_t)CURL_MAX_HTTP_HEADER) {
-    warnf(per->config->global, "Header data exceeds write limit");
+    warnf("Header data exceeds write limit");
     return CURL_WRITEFUNC_ERROR;
   }
 #endif
@@ -119,8 +120,7 @@ size_t tool_header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
       return rc;
     /* flush the stream to send off what we got earlier */
     if(fflush(heads->stream)) {
-      errorf(per->config->global, "Failed writing headers to %s",
-             per->config->headerfile);
+      errorf("Failed writing headers to %s", per->config->headerfile);
       return CURL_WRITEFUNC_ERROR;
     }
   }
@@ -285,11 +285,11 @@ size_t tool_header_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
     if(!outs->stream && !tool_create_output_file(outs, per->config))
       return CURL_WRITEFUNC_ERROR;
 
-    if(hdrcbdata->global->isatty &&
+    if(global->isatty &&
 #ifdef _WIN32
        tool_term_has_bold &&
 #endif
-       hdrcbdata->global->styled_output)
+       global->styled_output)
       value = memchr(ptr, ':', cb);
     if(value) {
       size_t namelen = value - ptr;
@@ -322,12 +322,9 @@ static char *parse_filename(const char *ptr, size_t len)
   char *q;
   char  stop = '\0';
 
-  /* simple implementation of strndup() */
-  copy = malloc(len + 1);
+  copy = memdup0(ptr, len);
   if(!copy)
     return NULL;
-  memcpy(copy, ptr, len);
-  copy[len] = '\0';
 
   p = copy;
   if(*p == '\'' || *p == '"') {
@@ -438,11 +435,9 @@ static void write_linked_location(CURL *curl, const char *location,
     goto locout;
 
   /* Create a null-terminated and whitespace-stripped copy of Location: */
-  copyloc = malloc(llen + 1);
+  copyloc = memdup0(loc, llen);
   if(!copyloc)
     goto locout;
-  memcpy(copyloc, loc, llen);
-  copyloc[llen] = 0;
 
   /* The original URL to use as a base for a relative redirect URL */
   if(curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &locurl))

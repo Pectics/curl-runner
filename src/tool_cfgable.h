@@ -62,23 +62,21 @@
 #define tool_safefree(ptr)                      \
   do { free((ptr)); (ptr) = NULL;} while(0)
 
-struct GlobalConfig;
+extern struct GlobalConfig *global;
 
 struct State {
   struct getout *urlnode;
-  struct URLGlob *inglob;
-  struct URLGlob *urls;
-  char *outfiles;
+  struct URLGlob inglob;
+  struct URLGlob urlglob;
   char *httpgetfields;
   char *uploadfile;
-  curl_off_t infilenum; /* number of files to upload */
-  curl_off_t up;        /* upload file counter within a single upload glob */
+  curl_off_t upnum;     /* number of files to upload */
+  curl_off_t upidx;     /* index for upload glob */
   curl_off_t urlnum;    /* how many iterations this URL has with ranges etc */
-  curl_off_t li;        /* index for globbed URLs */
+  curl_off_t urlidx;    /* index for globbed URLs */
 };
 
 struct OperationConfig {
-  struct State state;             /* for create_transfer() */
   struct dynbuf postdata;
   char *useragent;
   struct curl_slist *cookies;  /* cookies to serialize into a single line */
@@ -188,7 +186,6 @@ struct OperationConfig {
   char *ech;                      /* Config set by --ech keywords */
   char *ech_config;               /* Config set by "--ech esl:" option */
   char *ech_public;               /* Config set by "--ech pn:" option */
-  struct GlobalConfig *global;
   struct OperationConfig *prev;
   struct OperationConfig *next;   /* Always last in the struct */
   curl_off_t condtime;
@@ -224,6 +221,7 @@ struct OperationConfig {
   long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                      0 is valid. default: CURL_HET_DEFAULT. */
   unsigned long timecond;
+  long followlocation;      /* follow http redirects mode */
   HttpReq httpreq;
   long proxyver;             /* set to CURLPROXY_HTTP* define */
   long ftp_ssl_ccc_mode;
@@ -264,7 +262,6 @@ struct OperationConfig {
   BIT(show_headers);        /* show headers to data output */
   BIT(no_body);             /* do not get the body */
   BIT(dirlistonly);         /* only get the FTP dir list */
-  BIT(followlocation);      /* follow http redirects */
   BIT(unrestricted_auth);   /* Continue to send authentication (user+password)
                                when following redirects, even when hostname
                                changed */
@@ -342,7 +339,15 @@ struct OperationConfig {
   BIT(skip_existing);
 };
 
+#if defined(_WIN32) && !defined(UNDER_CE)
+struct termout {
+  wchar_t *buf;
+  DWORD len;
+};
+#endif
+
 struct GlobalConfig {
+  struct State state;             /* for create_transfer() */
   char *trace_dump;               /* file to dump the network trace to */
   FILE *trace_stream;
   char *libcurl;                  /* Output libcurl code to this filename */
@@ -353,6 +358,9 @@ struct GlobalConfig {
   struct OperationConfig *first;
   struct OperationConfig *current;
   struct OperationConfig *last;
+#if defined(_WIN32) && !defined(UNDER_CE)
+  struct termout term;
+#endif
   timediff_t ms_per_transfer;     /* start next transfer after (at least) this
                                      many milliseconds */
   trace tracetype;
@@ -377,7 +385,9 @@ struct GlobalConfig {
   BIT(isatty);                    /* Updated internally if output is a tty */
 };
 
-struct OperationConfig *config_alloc(struct GlobalConfig *global);
+struct OperationConfig *config_alloc(void);
 void config_free(struct OperationConfig *config);
+CURLcode globalconf_init(void);
+void globalconf_free(void);
 
 #endif /* HEADER_CURL_TOOL_CFGABLE_H */

@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
@@ -73,7 +73,7 @@ jobs:
     timeout-minutes: 10
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -97,7 +97,7 @@ jobs:
     timeout-minutes: 10
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -123,7 +123,7 @@ jobs:
     timeout-minutes: 10
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -147,7 +147,7 @@ jobs:
     timeout-minutes: 10
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -168,7 +168,7 @@ jobs:
     timeout-minutes: 5
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -190,7 +190,7 @@ jobs:
     timeout-minutes: 5
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -212,11 +212,11 @@ jobs:
     timeout-minutes: 5
     needs: maketgz-and-verify-in-tree
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: 'release-tgz'
 
@@ -228,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
@@ -260,7 +260,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu-latest, macos-latest, windows-latest]
+        image: [ubuntu-latest, macos-latest, windows-2022]
     steps:
       - uses: msys2/setup-msys2@40677d36a502eb2cf0fb808cc9dec31bf6152638 # v2
         if: ${{ contains(matrix.image, 'windows') }}
@@ -297,16 +297,32 @@ jobs:
             printf '%s' ~/cmake-"${OLD_CMAKE_VERSION}"-Darwin-x86_64/CMake.app/Contents/bin/cmake > ~/old-cmake-path.txt
           fi
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
 
+      - name: 'via ExternalProject'
+        if: ${{ !contains(matrix.image, 'ubuntu') }}
+        run: ./tests/cmake/test.sh ExternalProject ${TESTOPTS}
       - name: 'via FetchContent'
         run: ./tests/cmake/test.sh FetchContent ${TESTOPTS} -DCURL_USE_OPENSSL=ON
       - name: 'via add_subdirectory'
         run: ./tests/cmake/test.sh add_subdirectory ${TESTOPTS} -DCURL_USE_OPENSSL=ON
       - name: 'via find_package'
         run: ./tests/cmake/test.sh find_package ${TESTOPTS} -DCURL_USE_OPENSSL=ON
+
+      - name: 'via ExternalProject (old cmake)'
+        if: ${{ contains(matrix.image, 'ubuntu') }}
+        run: |
+          export TEST_CMAKE_CONSUMER; TEST_CMAKE_CONSUMER="$(cat ~/old-cmake-path.txt)"
+          if [[ "${MATRIX_IMAGE}" = *'macos'* ]]; then
+            export CFLAGS='-arch arm64'
+          fi
+          if [[ "${MATRIX_IMAGE}" = *'windows'* ]]; then
+            export TEST_CMAKE_GENERATOR='MSYS Makefiles'
+            export TEST_CMAKE_FLAGS='-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc'
+          fi
+          ./tests/cmake/test.sh ExternalProject ${TESTOPTS}
 
       - name: 'via add_subdirectory OpenSSL (old cmake)'
         run: |

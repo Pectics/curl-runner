@@ -105,8 +105,10 @@ struct test_result {
 
 static const struct test_case *current_tc;
 static struct test_result *current_tr;
+static int test_idx;
 
 struct cf_test_ctx {
+  int idx;
   int ai_family;
   int transport;
   char id[16];
@@ -151,13 +153,13 @@ static CURLcode cf_test_connect(struct Curl_cfilter *cf,
   return CURLE_OK;
 }
 
-static void cf_test_adjust_pollset(struct Curl_cfilter *cf,
-                                   struct Curl_easy *data,
-                                   struct easy_pollset *ps)
+static CURLcode cf_test_adjust_pollset(struct Curl_cfilter *cf,
+                                       struct Curl_easy *data,
+                                       struct easy_pollset *ps)
 {
+  struct cf_test_ctx *ctx = cf->ctx;
   /* just for testing, give one socket with events back */
-  (void)cf;
-  Curl_pollset_set(data, ps, 1, TRUE, TRUE);
+  return Curl_pollset_set(data, ps, ctx->idx, TRUE, TRUE);
 }
 
 static CURLcode cf_test_create(struct Curl_cfilter **pcf,
@@ -196,6 +198,7 @@ static CURLcode cf_test_create(struct Curl_cfilter **pcf,
     result = CURLE_OUT_OF_MEMORY;
     goto out;
   }
+  ctx->idx = test_idx++;
   ctx->ai_family = ai->ai_family;
   ctx->transport = transport;
   ctx->started = curlx_now();
@@ -375,7 +378,6 @@ static CURLcode test_unit2600(const char *arg)
     { 4, TURL, "test.com:123:::1,::2", CURL_IPRESOLVE_WHATEVER,
       CNCT_TMOT, 150, 250,  250,    0,  2,      400,  TC_TMOT,  R_FAIL, NULL },
     /* 2 ipv6, fails after ~400ms, reports COULDNT_CONNECT   */
-
     { 5, TURL, "test.com:123:192.0.2.1,::1", CURL_IPRESOLVE_WHATEVER,
       CNCT_TMOT, 150, 250, 250,     1,  1,      350,  TC_TMOT,  R_FAIL, "v6" },
     /* mixed ip4+6, v6 always first, v4 kicks in on HE, fails after ~350ms */
@@ -390,6 +392,10 @@ static CURLcode test_unit2600(const char *arg)
       CNCT_TMOT, 150, 500, 500,     0,  1,      400,  TC_TMOT,  R_FAIL, NULL },
     /* mixed ip4+6, but only use v6, check it uses full connect timeout,
        although another address of the 'wrong' family is available */
+    { 9, TURL, "test.com:123:::1,192.0.2.1,::2,::3", CURL_IPRESOLVE_WHATEVER,
+      CNCT_TMOT, 50,  400,  400,    1,  3,      550,  TC_TMOT,  R_FAIL, NULL },
+    /* 1 v4, 3 v6, fails after (3*HE)+400ms, ~550ms, COULDNT_CONNECT */
+
 #endif
   };
 

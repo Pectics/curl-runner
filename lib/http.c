@@ -137,10 +137,10 @@ const struct Curl_handler Curl_handler_http = {
   Curl_http_connect,                    /* connect_it */
   ZERO_NULL,                            /* connecting */
   ZERO_NULL,                            /* doing */
-  ZERO_NULL,                            /* proto_getsock */
-  Curl_http_getsock_do,                 /* doing_getsock */
-  ZERO_NULL,                            /* domore_getsock */
-  ZERO_NULL,                            /* perform_getsock */
+  ZERO_NULL,                            /* proto_pollset */
+  Curl_http_do_pollset,                 /* doing_pollset */
+  ZERO_NULL,                            /* domore_pollset */
+  ZERO_NULL,                            /* perform_pollset */
   ZERO_NULL,                            /* disconnect */
   Curl_http_write_resp,                 /* write_resp */
   Curl_http_write_resp_hd,              /* write_resp_hd */
@@ -167,10 +167,10 @@ const struct Curl_handler Curl_handler_https = {
   Curl_http_connect,                    /* connect_it */
   NULL,                                 /* connecting */
   ZERO_NULL,                            /* doing */
-  NULL,                                 /* proto_getsock */
-  Curl_http_getsock_do,                 /* doing_getsock */
-  ZERO_NULL,                            /* domore_getsock */
-  ZERO_NULL,                            /* perform_getsock */
+  NULL,                                 /* proto_pollset */
+  Curl_http_do_pollset,                 /* doing_pollset */
+  ZERO_NULL,                            /* domore_pollset */
+  ZERO_NULL,                            /* perform_pollset */
   ZERO_NULL,                            /* disconnect */
   Curl_http_write_resp,                 /* write_resp */
   Curl_http_write_resp_hd,              /* write_resp_hd */
@@ -1323,7 +1323,7 @@ CURLcode Curl_http_follow(struct Curl_easy *data, const char *newurl,
     data->info.wouldredirect = follow_url;
 
     if(reachedmax) {
-      failf(data, "Maximum (%ld) redirects followed", data->set.maxredirs);
+      failf(data, "Maximum (%d) redirects followed", data->set.maxredirs);
       return CURLE_TOO_MANY_REDIRECTS;
     }
     return CURLE_OK;
@@ -1524,14 +1524,11 @@ CURLcode Curl_http_connect(struct Curl_easy *data, bool *done)
 /* this returns the socket to wait for in the DO and DOING state for the multi
    interface and then we are always _sending_ a request and thus we wait for
    the single socket to become writable only */
-int Curl_http_getsock_do(struct Curl_easy *data,
-                         struct connectdata *conn,
-                         curl_socket_t *socks)
+CURLcode Curl_http_do_pollset(struct Curl_easy *data,
+                              struct easy_pollset *ps)
 {
   /* write mode */
-  (void)conn;
-  socks[0] = Curl_conn_get_socket(data, FIRSTSOCKET);
-  return GETSOCK_WRITESOCK(0);
+  return Curl_pollset_add_out(data, ps, data->conn->sock[FIRSTSOCKET]);
 }
 
 /*
@@ -1825,7 +1822,9 @@ void Curl_http_method(struct Curl_easy *data, struct connectdata *conn,
 {
   Curl_HttpReq httpreq = (Curl_HttpReq)data->state.httpreq;
   const char *request;
-  if((conn->handler->protocol&(PROTO_FAMILY_HTTP|CURLPROTO_FTP)) &&
+  if(conn->handler->protocol&(CURLPROTO_WS|CURLPROTO_WSS))
+    httpreq = HTTPREQ_GET;
+  else if((conn->handler->protocol&(PROTO_FAMILY_HTTP|CURLPROTO_FTP)) &&
      data->state.upload)
     httpreq = HTTPREQ_PUT;
 
@@ -2417,7 +2416,7 @@ static CURLcode http_req_complete(struct Curl_easy *data,
 out:
   if(!result) {
     /* setup variables for the upcoming transfer */
-    Curl_xfer_setup1(data, CURL_XFER_SENDRECV, -1, TRUE);
+    Curl_xfer_setup_sendrecv(data, FIRSTSOCKET, -1);
   }
   return result;
 }
@@ -2706,6 +2705,8 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
       if(result)
         goto fail;
       info_version = "HTTP/2";
+      /* There is no ALPN here, but the connection is now definitely h2 */
+      conn->httpversion_seen = 20;
     }
     else
       info_version = "HTTP/1.x";
@@ -3772,9 +3773,6 @@ static CURLcode http_on_response(struct Curl_easy *data,
         if(result)
           goto out;
         *pconsumed += blen; /* ws accept handled the data */
-        k->header = FALSE; /* we will not get more responses */
-        if(data->set.connect_only)
-          k->keepon &= ~KEEP_RECV; /* read no more content */
       }
 #endif
       else {
@@ -4787,7 +4785,7 @@ static CURLcode cr_exp100_read(struct Curl_easy *data,
     /* We are now waiting for a reply from the server or
      * a timeout on our side IFF the request has been fully sent. */
     DEBUGF(infof(data, "cr_exp100_read, start AWAITING_CONTINUE, "
-           "timeout %ldms", data->set.expect_100_timeout));
+           "timeout %dms", data->set.expect_100_timeout));
     ctx->state = EXP100_AWAITING_CONTINUE;
     ctx->start = curlx_now();
     Curl_expire(data, data->set.expect_100_timeout, EXPIRE_100_TIMEOUT);
