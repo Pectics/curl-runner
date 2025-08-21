@@ -6,7 +6,7 @@ SPDX-License-Identifier: curl
 
 # curl-runner
 
-[![curl-runner logo](assets/curl_runner.png)](https://github.com/Pectics/curl-runner)
+# <img src="https://curl.se/logo/curl-logo.svg" alt="curl logo" width="320">
 
 **curl-runner** 是一个基于 [curl](https://curl.se/) 改造的可复用库。
 与原版的 `curl` 命令行工具或 `libcurl` 不同，**curl-runner** 让你可以在程序内部直接以函数调用的方式使用 curl 的完整功能，而无需对接 `libcurl` 或依赖外部的 `curl.exe`。  
