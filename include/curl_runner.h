@@ -32,7 +32,7 @@ void set_stderr_capture_buffer(struct CaptureBuffer *buffer);
 #define RUNNER_OUT_BUFFER_SIZE 1024 * 64
 #define RUNNER_ERR_BUFFER_SIZE 1024 * 16
 
-std::wstring to_wide(const std::string& utf8str) {
+static std::wstring utf8_to_wide(const std::string& utf8str) {
     if (utf8str.empty()) return std::wstring();
     std::wstring result;
     result.reserve(utf8str.length());
@@ -104,7 +104,7 @@ struct CurlResult curl_run(const std::vector<std::string> &args) {
     argv.reserve(args.size() + 2);
     argv.push_back(const_cast<wchar_t*>(L"curl"));
     for (auto &s : args)
-        argv.push_back(const_cast<wchar_t*>(to_wide(s).c_str()));
+        argv.push_back(const_cast<wchar_t*>(utf8_to_wide(s).c_str()));
     argv.push_back(nullptr);
 
     int code = curl_wmain(static_cast<int>(argv.size() - 1), argv.data());
