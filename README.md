@@ -16,7 +16,7 @@ SPDX-License-Identifier: curl
 ## 功能特色
 
 - 完全保留了 curl 的命令行参数体系
-- 支持通过 `argc/argv` 风格的接口在你的应用中直接调用
+- 支持通过 `vector<string>` 风格的接口在你的应用中直接调用
 - 捕获并返回 stdout / stderr 的输出
 - 基于 libcurl，具备强大而稳定的 HTTP(S)、FTP、SFTP 等协议支持
 - 提供同步执行接口，可嵌入任意 C++ 程序中
