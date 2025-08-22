@@ -45,14 +45,13 @@ cmake --build build --config Release
 ## 使用示例
 
 ```cpp
-#include "curl_runner.h"
 #include <iostream>
+#include "curl_runner.h"
 
 int main() {
-    const char* argv[] = {"-s", "https://example.com"};
-    int argc = sizeof(argv) / sizeof(argv[0]);
+    std::vector<std::string> args = {"-s", "https://example.com"};
 
-    CurlResult result = curl_run(argc, const_cast<char**>(argv));
+    CurlResult result = curl_run(args);
     std::cout << "Exit code: " << result.exit_code << "\n";
     std::cout << "Stdout:\n" << result.stdout_str << "\n";
     std::cerr << "Stderr:\n" << result.stderr_str << "\n";
@@ -82,7 +81,7 @@ struct CurlResult {
 ### `curl_run` 函数
 
 ```cpp
-CurlResult curl_run(int argc, char* argv[]);
+struct CurlResult curl_run(const std::vector<std::string> &args);
 ```
 
 * 参数与原生 `curl` 的 CLI 相似，不需要给定 `"curl"` 参数
